@@ -1,9 +1,12 @@
 #Projet 808
 
-jo <- read.csv('C:/Users/axell/Documents/M1/808-Visualisation/projet/dataset_olympics.csv')
+path = "E:/Mes dossiers/3) Professionnel et Important/1) Scolarité/Master/INFO0808 - Visualisation/Projet/dataset_olympics.csv"
+if (!file.exists(path)) { path = file.choose() }
+jo = read.csv(path, header=TRUE, stringsAsFactors=TRUE, sep = ",")
 
 library(ggplot2)
 library(dplyr)
+library(rAmCharts)
 
 #histogramme de la taille
 ggplot(jo)+aes(x=Height, fill="lightblue")+geom_bar()
@@ -41,14 +44,19 @@ ggplot(sport_par_annee)+aes(x=Year,y=nb_sport, fill="lightblue")+
 ggplot(jo)+aes(x=Sport, fill="lightblue")+geom_bar()
 
 #nb participant par pays 
-ggplot(jo)+aes(x=Team, fill="lightblue")+geom_bar()
+participations = dplyr::select(jo, Team)
+nb_participant_pays <- participations %>% count(Team)
+nb_participant_pays <- nb_participant_pays[order(nb_participant_pays$n, decreasing = TRUE),]
+nb_participant_pays[1:10,]
 
 #age des participants en fonction des années
-library(rAmCharts)
 amBoxplot(Age ~ Year, data = jo)
 
 #âge des participants par pays
-amBoxplot(Age ~ Team, data = jo)
+age_per_country = function(data, countries) {
+  amBoxplot(Age ~ NOC, data = filter(data, NOC %in% countries))
+}
+age_per_country(jo, unique(jo$NOC)[1:10])
 
 #âge des participants par sport
 amBoxplot(Age ~ Sport, data = jo)
