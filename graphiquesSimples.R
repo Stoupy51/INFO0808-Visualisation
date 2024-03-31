@@ -44,8 +44,8 @@ ggplot(sport_par_annee)+aes(x=Year,y=nb_sport, fill="lightblue")+
 ggplot(jo)+aes(x=Sport, fill="lightblue")+geom_bar()
 
 #nb participant par pays 
-participations = dplyr::select(jo, Team)
-nb_participant_pays <- participations %>% count(Team)
+participations = dplyr::select(jo, NOC)
+nb_participant_pays <- participations %>% count(NOC)
 nb_participant_pays <- nb_participant_pays[order(nb_participant_pays$n, decreasing = TRUE),]
 nb_participant_pays[1:10,]
 
@@ -68,6 +68,7 @@ ggplot(medailles)+aes(x=Medal,fill="lightblue")+geom_bar()
 ggplot(medailles)+aes(x=Age,fill="lightblue")+geom_bar()+ylab("Nb de médailles")
 
 #nb de médailles par pays
-nb_medal_pays <- medailles %>% count(Team)
+nb_medal_pays <- medailles %>% count(NOC)
 nb_medal_pays <- nb_medal_pays[order(nb_medal_pays$n, decreasing = TRUE),]
 nb_medal_pays[1:10,]
+
