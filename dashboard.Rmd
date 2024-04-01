@@ -1,0 +1,323 @@
+---
+title: "Visualisation de données sur les jeux olympiques"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    runtime: shiny
+---
+
+```{r global, include=FALSE}
+library(shiny)
+library(flexdashboard)
+library(DT)
+library(ggplot2)
+library(dplyr)
+library(rAmCharts)
+
+path = "E:/Mes dossiers/3) Professionnel et Important/1) Scolarité/Master/INFO0808 - Visualisation/Projet/dataset_olympics.csv"
+if (!file.exists(path)) { path = file.choose() }
+jo = read.csv(path, header=TRUE, stringsAsFactors=TRUE, sep = ",")
+
+medal_maps = function(data, years = NA) {
+
+  # Restrict data
+  restricted = filter(data, Medal %in% c("Gold","Silver","Bronze"))
+  if (sum(is.na(years)) == 0) {
+    restricted = filter(restricted, Year %in% years)
+  }
+  
+  # Rename countries with "-XXX" like (France-2 to France)
+  restricted$Team = gsub("-.*", "", restricted$Team)
+  
+  # Count medals for each countries
+  per_country = data.frame(NOC = unique(restricted$NOC), nb_medals = 0)
+  for (i in per_country$NOC) {
+    index = per_country$NOC == i
+    r_index = restricted$NOC == i
+    per_country[index, "nb_medals"] = sum(r_index)
+    Team = unique(restricted[r_index, "Team"])[1]
+    per_country[index, "Team"] = Team
+  }
+  
+  # Merge data with world map data
+  world_map = map_data("world")
+  for (i in per_country$Team) {
+	  index = per_country$Team == i
+	  nb_medals = sum(per_country[index, "nb_medals"])
+	  world_indexes = i == world_map$region
+	  if (sum(world_indexes) > 0) {
+		  world_map[world_indexes, "nb_medals"] = nb_medals
+	  }
+	  else {
+	    NOC = per_country$NOC[index]
+		  world_indexes = i == world_map$subregion | NOC == world_map$region
+		  world_indexes[is.na(world_indexes)] = FALSE
+		  world_map[world_indexes, "nb_medals"] = nb_medals
+	  }
+  }
+  world_map = world_map[order(world_map$order),]
+  
+  # Prepare the plot
+  p = ggplot(world_map) + aes(x=long,y=lat,group=group,fill=nb_medals) +
+	  geom_polygon() +
+    scale_fill_gradient(low="yellow", high="brown")+
+    theme_bw()
+  
+  # Add legends
+  min_year = min(restricted$Year)
+  max_year = max(restricted$Year)
+  title = paste0("Nombre de médailles par pays (",min_year,")")
+  if (min_year != max_year) {
+    title = paste0("Nombre de médailles par pays (",min_year,"-",max_year,")")
+  }
+  p = p + labs(x = "Longitude", y = "Latitude", fill = "Nombre de médailles", title = title)
+  return (p)
+}
+
+participations_map = function(data, years = NA) {
+
+  # Restrict data
+  restricted = filter(data, Medal %in% c("Gold","Silver","Bronze"))
+  if (sum(is.na(years)) == 0) {
+    restricted = filter(restricted, Year %in% years)
+  }
+  
+  # Rename countries with "-XXX" like (France-2 to France)
+  restricted$Team = gsub("-.*", "", restricted$Team)
+  
+  # Count for each countries
+  per_country = data.frame(NOC = unique(restricted$NOC), nb_participants = 0)
+  for (i in per_country$NOC) {
+    index = per_country$NOC == i
+    r_index = restricted$NOC == i
+    per_country[index, "nb_participants"] = sum(r_index)
+    Team = unique(restricted[r_index, "Team"])[1]
+    per_country[index, "Team"] = Team
+  }
+  
+  # Divide count by the number of participations per country
+  min_year = min(restricted$Year)
+  max_year = max(restricted$Year)
+  for (i in per_country$NOC) {
+    index = per_country$NOC == i
+    participations = length(unique(restricted$Year[index]))
+    per_country[index, "nb_participants"] = per_country[index, "nb_participants"] / participations
+  }
+  
+  # Merge data with world map data
+  world_map = map_data("world")
+  for (i in per_country$Team) {
+    index = per_country$Team == i
+    nb_participants = sum(per_country[index, "nb_participants"])
+    world_indexes = i == world_map$region
+    if (sum(world_indexes) > 0) {
+      world_map[world_indexes, "nb_participants"] = nb_participants
+    }
+    else {
+      NOC = per_country$NOC[index]
+      world_indexes = i == world_map$subregion | NOC == world_map$region
+      world_indexes[is.na(world_indexes)] = FALSE
+      world_map[world_indexes, "nb_participants"] = nb_participants
+    }
+  }
+  world_map = world_map[order(world_map$order),]
+  
+  # Prepare the plot
+  p = ggplot(world_map) + aes(x=long,y=lat,group=group,fill=nb_participants) +
+    geom_polygon() +
+    scale_fill_gradient(low="yellow", high="brown")+
+    theme_bw()
+  
+  # Add legends
+  title = paste0("Nombre moyen de participants par pays (",min_year,")")
+  if (min_year != max_year) {
+    title = paste0("Nombre moyen de participants par pays (",min_year,"-",max_year,")")
+  }
+  p = p + labs(x = "Longitude", y = "Latitude", fill = "Nombre moyen de participants", title = title)
+  return (p)
+}
+```
+
+# Classements et participants
+## Column {data-width="500"}
+### Configuration {data-height="100"}
+```{r}
+sliderInput("years_range",
+  label="Choix de la plage d'années",
+  min = min(jo$Year),
+  max = max(jo$Year),
+  value = c(min(jo$Year), max(jo$Year)),
+  width = "100%"
+)
+```
+
+### Classement du nombre de médailles par Pays
+```{r}
+renderDataTable({
+  data = filter(jo, Year %in% input$years_range[1]:input$years_range[2])
+  medailles = filter(data, Medal %in% c("Gold","Silver","Bronze"))
+  nb_medal_pays = medailles %>% count(Team)
+  nb_medal_pays = nb_medal_pays[order(nb_medal_pays$n, decreasing = TRUE),]
+  df = data.frame("Pays" = nb_medal_pays$Team, "Nombre de médailles" = nb_medal_pays$n)
+  DT::datatable(df, options = list(pageLength=15))
+})
+```
+
+## Column {data-width="500"}
+### Carte du nombre de médailles par Pays 
+```{r}
+renderPlot({
+  medal_maps(jo, input$years_range[1]:input$years_range[2])
+})
+```
+
+### Carte du nombre de participants par Pays
+```{r}
+renderPlot({
+  participations_map(jo, input$years_range[1]:input$years_range[2])
+})
+```
+
+
+
+# Globalités
+## Column
+### Nombre de médailles d'or, d'argent, et de bronze
+```{r}
+medals = filter(jo, Medal %in% c("Gold","Silver","Bronze"))
+ggplot(medals) + aes(x=Medal, fill=Medal) + geom_bar() +
+  scale_fill_manual("legend", values = c("Gold"="#FFE700", "Silver"="#C0C0C0", "Bronze"="#CD7F32")) +
+  labs(x = "Médailles", y = "Nombre de médailles")
+```
+
+### Nombre de médailles en fonction de l'âge
+```{r}
+medals = filter(jo, Medal %in% c("Gold","Silver","Bronze"))
+ggplot(medals) + aes(x=Age, fill=Medal) + geom_bar() +
+  scale_fill_manual("legend", values = c("Gold"="#FFE700", "Silver"="#C0C0C0", "Bronze"="#CD7F32")) +
+  labs(x = "Âge", y = "Nombre de médailles")
+```
+
+## Column
+### Tailles (en cm)
+```{r}
+ggplot(jo) + aes(x=Height, fill=Sex) + geom_bar() +
+  labs(x = "Hauteur (en cm)", y = "Nombre d'individus")
+```
+
+### Poids
+```{r}
+ggplot(jo) + aes(x=round(Weight), fill=Sex) + geom_bar() +
+  labs(x = "Poids (en kg)", y = "Nombre d'individus")
+```
+
+## Column
+### Nombre de sport par année et par saison
+```{r}
+sport_par_annee = jo %>% group_by(Year,Season) %>% summarise(nb_sport = n_distinct(Sport))
+ggplot(sport_par_annee) + aes(x = Year, y = nb_sport, fill=Season) +
+  scale_fill_manual("legend", values = c("Summer"="red", "Winter"="blue")) +
+  geom_bar(stat = "identity") + facet_wrap(~ Season) +
+  labs(x = "Année", y = "Nombre de sport", fill="Saison")
+```
+
+### Nombre d'événements par année et par saison
+```{r}
+event_par_annee = jo %>% group_by(Year,Season) %>% summarise(nb_event = n_distinct(Event))
+ggplot(event_par_annee) + aes(x = Year, y = nb_event, fill=Season) +
+  scale_fill_manual("legend", values = c("Summer"="red", "Winter"="blue")) +
+  geom_bar(stat = "identity") + facet_wrap(~ Season) +
+  labs(x = "Année", y = "Nombre de sport", fill="Saison")
+```
+
+
+
+# Âge des athlètes
+## Column {.sidebar}
+### Configurations
+```{r}
+selectInput("countries",
+  label="Choix des pays",
+  multiple = TRUE,
+  choices = unique(jo$Team),
+  selected = c("France", "United States", "China", "Norway", "Japan")
+)
+selectInput("sports",
+  label="Choix des disciplines",
+  multiple = TRUE,
+  choices = unique(jo$Sport),
+  selected = c("Art Competitions", "Croquet", "Rhythmic Gymnastics", "Rowing")
+)
+sliderInput("years_range_2",
+  label="Choix de la plage d'années",
+  min = min(jo$Year),
+  max = max(jo$Year),
+  value = c(min(jo$Year), max(jo$Year))
+)
+```
+
+## Column
+### Âge des athlètes par Pays
+```{r}
+renderAmCharts({
+  amBoxplot(Age ~ Team, data = filter(jo, Team %in% input$countries))
+})
+```
+
+### Âge des athlètes par Disciplines
+```{r}
+renderAmCharts({
+  amBoxplot(Age ~ Sport, data = filter(jo, Sport %in% input$sports))
+})
+```
+
+### Âge des athlètes par Années
+```{r}
+renderAmCharts({
+  amBoxplot(Age ~ Year, data = filter(jo, Year %in% input$years_range_2[1]:input$years_range_2[2]))
+})
+```
+
+
+
+# Dénombrons !
+## Column
+### Classement du nombre d’athlètes par pays
+```{r}
+participations = select(jo, Team)
+nb_participant_pays = participations %>% count(Team)
+nb_participant_pays = nb_participant_pays[order(nb_participant_pays$n, decreasing = TRUE),]
+df = data.frame("Pays" = nb_participant_pays$Team, "Nombre de participants" = nb_participant_pays$n)
+DT::datatable(df, options = list(pageLength=15))
+```
+
+### Graphique du nombre d’athlètes par pays
+```{r}
+ggplot(nb_participant_pays) + aes(x=Team, y=n, fill=n) + 
+  geom_bar(stat = "identity", width = 10) +
+  labs(x = "Pays", y = "Nombre de participants")
+```
+
+## Column
+### Graphique du nombre d’athlètes par sport
+```{r}
+ggplot(jo) + aes(x=Sport, fill=Sex) + geom_bar() +
+  labs(x = "Pays", y = "Nombre de participants")
+```
+
+### Nombre de participants par année et par saison
+```{r}
+sport_par_annee = jo %>% group_by(Year,Season) %>% summarise(nb_sport = n_distinct(Sport))
+ggplot(sport_par_annee) + aes(x=Year, y=nb_sport, fill=Season) +
+  scale_fill_manual("legend", values = c("Summer"="red", "Winter"="blue")) +
+  geom_bar(stat = "identity") + facet_wrap(~ Season) +
+  labs(x = "Année", y = "Nombre de participants")
+```
+
+
+# Données pures
+```{r}
+DT::datatable(jo, options = list(pageLength=50))
+```
+
