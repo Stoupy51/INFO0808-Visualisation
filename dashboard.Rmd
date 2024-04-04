@@ -203,7 +203,7 @@ ggplot(medals) + aes(x=Age, fill=Medal) + geom_bar() +
 ### Tailles (en cm)
 ```{r}
 ggplot(jo) + aes(x=Height, fill=Sex) + geom_bar() +
-  labs(x = "Hauteur (en cm)", y = "Nombre d'individus")
+  labs(x = "Taille (en cm)", y = "Nombre d'individus")
 ```
 
 ### Poids
@@ -303,7 +303,7 @@ ggplot(nb_participant_pays) + aes(x=Team, y=n, fill=n) +
 ### Graphique du nombre d’athlètes par sport
 ```{r}
 ggplot(jo) + aes(x=Sport, fill=Sex) + geom_bar() +
-  labs(x = "Pays", y = "Nombre de participants")
+  labs(x = "Sport", y = "Nombre de participants")
 ```
 
 ### Nombre de participants par année et par saison
@@ -314,6 +314,33 @@ ggplot(sport_par_annee) + aes(x=Year, y=nb_sport, fill=Season) +
   geom_bar(stat = "identity") + facet_wrap(~ Season) +
   labs(x = "Année", y = "Nombre de participants")
 ```
+
+
+
+# Poids/Taille
+## Column
+### Poids en fonction de la taille et du sexe de l’athlète
+```{r}
+ggplot(jo) + aes(x=Height, y=Weight, color=Sex) + geom_point() +
+  labs(x = "Taille (en cm)", y = "Poids (en kg)", color = "Sexe de l'athlète")
+```
+
+## Column
+### Poids en fonction de la taille et des médailles de tout type
+```{r}
+ggplot(jo) + aes(x=Height, y=Weight, color=Medal) + geom_point() +
+  labs(x = "Taille (en cm)", y = "Poids (en kg)", color = "Médailles")
+```
+
+## Column
+### Poids en fonction de la taille et des médailles d'or, d'argent, et de bronze
+```{r}
+medals = filter(jo, Medal %in% c("Gold","Silver","Bronze"))
+ggplot(medals) + aes(x=Height, y=Weight, color=Medal) + geom_point() +
+  scale_color_manual("legend", values = c("Gold"="#FFE700", "Silver"="#C0C0C0", "Bronze"="#CD7F32")) +
+  labs(x = "Taille (en cm)", y = "Poids (en kg)")
+```
+
 
 
 # Données pures
