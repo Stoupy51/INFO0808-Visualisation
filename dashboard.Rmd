@@ -228,7 +228,7 @@ event_par_annee = jo %>% group_by(Year,Season) %>% summarise(nb_event = n_distin
 ggplot(event_par_annee) + aes(x = Year, y = nb_event, fill=Season) +
   scale_fill_manual("legend", values = c("Summer"="red", "Winter"="blue")) +
   geom_bar(stat = "identity") + facet_wrap(~ Season) +
-  labs(x = "Année", y = "Nombre de sport", fill="Saison")
+  labs(x = "Année", y = "Nombre d'événements", fill="Saison")
 ```
 
 
